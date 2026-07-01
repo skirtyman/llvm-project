@@ -1,6 +1,6 @@
 # BOLT
 
-BOLT is a post-link optimizer developed to speed up large applications.
+BOLT is a post-link optimizer developed to speed up large applications and workloads.
 It achieves the improvements by optimizing application's code layout based on
 execution profile gathered by sampling profiler, such as Linux `perf` tool.
 An overview of the ideas implemented in BOLT along with a discussion of its
