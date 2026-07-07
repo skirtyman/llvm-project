@@ -102,7 +102,6 @@ Makes programs 10x faster by doing Special New Thing.
   outlining. Add the `noinline` and `nooutline` attributes as well in cases
   where inlining and outlining should additionally be disabled.
 
-<<<<<<< HEAD
 * Added support for ``callgraph`` metadata. The `!callgraph` metadata
   associates a function definition with its type identifier and is used for call
   graph section generation. See the [callgraph Metadata](https://llvm.org/docs/LangRef.html#callgraph-metadata)
@@ -111,6 +110,9 @@ Makes programs 10x faster by doing Special New Thing.
 * The `dereferenceable` and `dereferenceable_or_null` attributes (and
   corresponding metadata) now apply only at the point of definition, instead of
   for the execution of the function (for arguments) or forever (for returns).
+
+* `alwaysinline` no longer bypasses inlining compatibility checks based on
+  target features. Inlining will only be performed if it is safe to do so.
 
 * Module-level inline assembly now accepts optional `target_features` and
   `target_cpu` properties. This resolves errors during LTO on some
