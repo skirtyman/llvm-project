@@ -537,31 +537,45 @@ int main(int argc, char **argv) {
   }
 
   // Parse the input and create InstrumentRegion that llvm-mca
-  // can use to improve analysis.
-  MCContext ICtx(TheTriple, *MAI, *MRI, *STI, &SrcMgr);
-  std::unique_ptr<MCObjectFileInfo> IMOFI(
-      TheTarget->createMCObjectFileInfo(ICtx, /*PIC=*/false));
-  ICtx.setObjectFileInfo(IMOFI.get());
-  mca::AsmInstrumentRegionGenerator IRG(*TheTarget, SrcMgr, ICtx, *MAI, *STI,
-                                        *MCII, *IM);
-  Expected<const mca::InstrumentRegions &> InstrumentRegionsOrErr =
-      IRG.parseInstrumentRegions(std::move(IPtemp),
-                                 shouldSkip(SkipType::PARSE_FAILURE));
-  if (!InstrumentRegionsOrErr) {
-    if (auto Err = handleErrors(InstrumentRegionsOrErr.takeError(),
-                                [](const StringError &E) {
-                                  WithColor::error() << E.getMessage() << '\n';
-                                })) {
-      // Default case.
-      WithColor::error() << toString(std::move(Err)) << '\n';
-    }
-    return 1;
-  }
-  const mca::InstrumentRegions &InstrumentRegions = *InstrumentRegionsOrErr;
+  // can use to improve analysis. Do not parse instrument regions if the
+  // -disable-im flag is set.
+  mca::InstrumentRegions EmptyInstrumentRegions(SrcMgr);
+  const mca::InstrumentRegions *InstrumentRegions = &EmptyInstrumentRegions;
 
-  // Early exit if errors were found by the instrumentation parsing logic.
-  if (!InstrumentRegions.isValid())
-    return 1;
+  std::unique_ptr<MCContext> ICtx;
+  std::unique_ptr<MCObjectFileInfo> IMOFI;
+  std::unique_ptr<mca::AsmInstrumentRegionGenerator> IRG;
+
+  if (!IM->shouldIgnoreInstruments()) {
+    ICtx = std::make_unique<MCContext>(TheTriple, *MAI, *MRI, *STI, &SrcMgr);
+    IMOFI.reset(TheTarget->createMCObjectFileInfo(*ICtx, /*PIC=*/false));
+    ICtx->setObjectFileInfo(IMOFI.get());
+    IRG = std::make_unique<mca::AsmInstrumentRegionGenerator>(
+        *TheTarget, SrcMgr, *ICtx, *MAI, *STI, *MCII, *IM);
+
+    Expected<const mca::InstrumentRegions &> InstrumentRegionsOrErr =
+        IRG->parseInstrumentRegions(std::move(IPtemp),
+                                   shouldSkip(SkipType::PARSE_FAILURE));
+
+    if (!InstrumentRegionsOrErr) {
+      if (auto Err = handleErrors(InstrumentRegionsOrErr.takeError(),
+                                  [](const StringError &E) {
+                                    WithColor::error() << E.getMessage() << '\n';
+                                  })) {
+        // Default case.
+        WithColor::error() << toString(std::move(Err)) << '\n';
+      }
+      return 1;
+    }
+
+    const mca::InstrumentRegions &ParsedRegions = *InstrumentRegionsOrErr;
+
+    // Early exit if errors were found by the instrumentation parsing logic.
+    if (!ParsedRegions.isValid())
+      return 1;
+
+    InstrumentRegions = &ParsedRegions;
+  }
 
   // Now initialize the output file.
   auto OF = getOutputStream();
@@ -647,7 +661,7 @@ int main(int argc, char **argv) {
     for (const MCInst &MCI : Insts) {
       SMLoc Loc = MCI.getLoc();
       const SmallVector<mca::Instrument *> Instruments =
-          InstrumentRegions.getActiveInstruments(Loc);
+          InstrumentRegions->getActiveInstruments(Loc);
 
       Expected<std::unique_ptr<mca::Instruction>> Inst =
           IB.createInstruction(MCI, Instruments);

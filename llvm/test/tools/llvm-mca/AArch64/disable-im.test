@@ -1,0 +1,12 @@
+# RUN: llvm-mca < %s -mtriple=aarch64 -mcpu=c1-nano -iterations=1 -debug 2>&1 | FileCheck %s --check-prefix=IMENABLED
+# RUN: llvm-mca < %s -mtriple=aarch64 -mcpu=c1-nano -iterations=1 -disable-im -debug 2>&1 | FileCheck %s --check-prefix=IMDISABLED
+
+# IMENABLED-COUNT-2: AsmMatcher: found
+# IMENABLED-NOT: AsmMatcher: found
+# IMENABLED: Iterations:{{ *}}1
+
+# IMDISABLED-COUNT-1: AsmMatcher: found
+# IMDISABLED-NOT: AsmMatcher: found
+# IMDISABLED: Iterations:{{ *}}1
+
+add x0, x0, x1
